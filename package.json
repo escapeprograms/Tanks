@@ -1,0 +1,20 @@
+{
+  "dependencies": {
+    "express": "^4.17.3",
+    "socket.io": "^4.4.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.15"
+  },
+  "name": "tanks",
+  "version": "1.0.0",
+  "main": "Server/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node Server/server.js",
+    "dev": "nodemon Server/server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
