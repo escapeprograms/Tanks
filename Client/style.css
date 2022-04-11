@@ -6,3 +6,90 @@ body {
   background-color:#e0e0e0;
   overflow: hidden;
 }
+
+h1, h3, p {
+  font-family: "Courier New", monospace;
+}
+
+button {
+  background-color:rgb(85,248,20);
+  border-width:0px;
+  border-radius:5px;
+  cursor: pointer;
+}
+
+.home {
+  display:inline;
+  text-align:center;
+  padding-top:100px;
+}
+
+.game {
+  display:none;
+  opacity:1;
+}
+
+#title {
+  margin-top:50px;
+  font-size: 50px;
+}
+
+#start-menu {
+  position: absolute;
+  background-color:rgb(255, 245, 140);
+  top:50%;
+  left:50%;
+  width:400px;
+  height:450px;
+  border-radius:25px;
+  transform: translate(-50%, -50%);
+}
+
+#user-container {
+  margin:27px;
+}
+
+#username {
+  background-color:white;
+  border-color:black;
+  border-radius:10px;
+  width:290px;
+  height:30px;
+  float:left;
+}
+
+#enter {
+  width:36px;
+  height:36px;
+  float:right;
+}
+
+#preview-container {
+  margin:80px;
+}
+
+#left-preview {
+  float:left;
+  width:50px;
+  height:100px;
+}
+#right-preview {
+  float:right;
+  width:50px;
+  height:100px;
+}
+
+#preview {
+  border-width:1px;
+  border-radius:5px;
+}
+
+.reset-home {
+  position:absolute;
+  animation-name: fall;
+  animation-duration: 2s;
+}
+@keyframes fall {
+  0%   {top:-300px;}
+  100% {top:50%;}
+}

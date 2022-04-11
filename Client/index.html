@@ -3,18 +3,36 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
-    <title>Tank Tap</title>
+    <title>Tanks.io</title>
     <link href="style.css" rel="stylesheet" type="text/css" />
     <!-- Load Socket -->
     <script src="/socket.io/socket.io.js"></script>
   </head>
   <body onkeypress="addKey(event)" onkeyup="removeKey(event)">
-    <section class="game">
+    <div class="home">
+      <div id="start-menu" class = "reset-home">
+        <h1 id="title">
+          Tanks.io
+        </h1>
+        <p>Written by Visionist</p>
+        <div id="user-container">
+          <h3>Enter your username:</h3>
+          <br>
+          <input id="username"></input>
+          <button id="enter">GO!</button>
+        </div>
+        <br>
+        <div id="preview-container">
+          <button id="left-preview"> Back </button>
+          <canvas id="preview">ERROR WITH CANVAS L</canvas>
+          <button id="right-preview">Next</button>
+        </div>
+      </div>
+    </div>
+    <div class="game">
       <p id="log"></p>
-      <canvas id="canvas">ERROR WITH CANVAS</canvas>
-    </section>
-    
-
+      <canvas id="canvas">ERROR WITH CANVAS L</canvas>
+    </div>
     <script src="client.js"></script>
   </body>
 </html>
