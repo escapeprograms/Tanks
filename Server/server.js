@@ -6,7 +6,9 @@ npm run dev to run as dev
 const http = require("http");
 const express = require("express");
 const socketio = require("socket.io");
+const fs = require("fs");
 var game = require("./game.js");//get all game classes
+var bot = require("./bots.js");//get ai
 
 const clientPath = __dirname +"/../Client"
 console.log("Serving static from "+clientPath);
@@ -48,6 +50,12 @@ io.on("connection", (socket)=>{
     }
   });
 
+  //spawn a bot
+  socket.on("bot",(obj)=>{
+    console.log("spawned bot")
+    players.push(new game.Player("bot", obj.username, obj.type));
+  });
+
   //check for dc
   socket.on("disconnect",()=>{
     //find and delete player
@@ -60,6 +68,12 @@ io.on("connection", (socket)=>{
   }
   });
 });
+//get weights from log
+var w = [];
+var rawdata = fs.readFileSync(__dirname+'/log.txt');
+w = JSON.parse(rawdata);
+var testBot = new bot.Bot("bot",w);
+players.push(new game.Player("bot", "BOT", 3));
 
 //Game
 var fps = 40;//frames per sec client side
@@ -68,10 +82,18 @@ setInterval(()=>{
   //check all players
   players.forEach((p, index)=>{
     for (var i = 0; i < fps/tps; i++){//loop to match tick per sec with fps
+      if (p.id=="bot") {
+        var sightLines = p.calcSightLines(players);
+        p.keys = testBot.respond(sightLines);
+      }
       p.update(players, bullets);
       //shoot
       if (p.shooting){
-        bullets.push(new game.Bullet(p.pos[0],p.pos[1],Math.cos(p.angle) * 15,Math.sin(p.angle) * 15,p.color, 100, 30));
+        p.guns.forEach((g)=>{
+          var angle = g.angle + Math.random()*p.spread-p.spread/2;
+          bullets.push(new game.Bullet(p.id, g.pos[0],g.pos[1],Math.cos(angle) * 15, Math.sin(angle) * 15, p.color, 100, p.dmg));
+        });
+        
         p.shooting = false;//stop shooting
       }
       //death
@@ -82,7 +104,7 @@ setInterval(()=>{
         //explode tank
         if (p.hp <= -40) {
           for (var s = 0; s < 12; s++){
-            bullets.push(new game.Bullet(p.pos[0],p.pos[1],Math.random()*50-25, Math.random()*50-25,p.color, Math.random()*10+20, 15));//shrapnel explosion
+            bullets.push(new game.Bullet(p.id, p.pos[0],p.pos[1],Math.random()*50-25, Math.random()*50-25,p.color, Math.random()*10+20, 15));//shrapnel explosion
           }
           players = players.slice(0,index).concat(players.slice(index+1));//delete player
         }
@@ -92,10 +114,18 @@ setInterval(()=>{
   
   //check all bullets
   for (var i = 0; i < bullets.length; i++){
+    var b = bullets[i];
     for (var j = 0; j < fps/tps; j++){
-      bullets[i].update();
+      b.update();
     }
-    if (bullets[i].dur<=0) {
+    if (b.dur<=0) {
+      if (b.hit){
+          //find bullet owner
+          for (var p = 0; p < players.length; p++){
+            if (b.id == players[p].id)
+              io.emit("message",players[p].username+" got a hit")
+          }
+        }
       bullets = bullets.slice(0,i).concat(bullets.slice(i+1));
       i--;
     }

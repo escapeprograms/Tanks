@@ -3,32 +3,106 @@ var tankTypes = [
   {
     name:"Standard",
     hp:100,
-    dmg:30,
+    dmg:40,
+    spread:0.1,
     acc:1,
     maxVel:5,
     cooldown:25,
     vertices:[[-12,-25],[12,-25],[12,25],[-12,25]],
-    mass:5
+    mass:5,
+    guns: [{pos:[0,0], angle:0}]
   },
   {
     name:"Zoomer",
     hp:70,
     dmg:20,
-    acc:2,
-    maxVel:8,
+    spread:0.3,
+    acc:4,
+    maxVel:6,
     cooldown:15,
     vertices:[[-12,-20],[30,0],[-12,20]],
-    mass:3
+    mass:3,
+    guns: [{pos:[0,0], angle:0}]
   },
   {
     name:"Artillery",
-    hp:120,
+    hp:150,
     dmg:80,
+    spread:0.05,
     acc:1,
     maxVel:1,
     cooldown:50,
     vertices:[[-25,-25],[12,-30],[18,0],[12,30],[-25,25]],
-    mass:10
+    mass:10,
+    guns: [{pos:[0,0], angle:0}]
+  },
+  {
+    name:"Shotty",
+    hp:110,
+    dmg:18,
+    spread:0.2,
+    acc:3,
+    maxVel:5,
+    cooldown:60,
+    vertices:[[-15,-20],[12,-25],[12,25],[-15,20]],
+    mass:6,
+    guns:[{pos:[0,0], angle:-0.25},
+          {pos:[0,0], angle:-0.15},
+          {pos:[0,0], angle:-0.05},
+          {pos:[0,0], angle:0.05},
+          {pos:[0,0], angle:0.15},
+          {pos:[0,0], angle:0.25}]
+  },
+  {
+    name:"Fidget Spinner",
+    hp:120,
+    dmg:10,
+    spread:0.1,
+    acc:1,
+    maxVel:3,
+    cooldown:10,
+    vertices:[[-15,26],[30,0],[-15,-26]],
+    mass:10,
+    guns: [{pos:[0,0], angle:0},
+           {pos:[0,0], angle:2*Math.PI/3},
+           {pos:[0,0], angle:4*Math.PI/3}]
+  },
+  {
+    name:"Starlord",
+    hp:90,
+    dmg:13,
+    spread:0.2,
+    acc:1.5,
+    maxVel:6,
+    cooldown:13,
+    vertices:[[-12,-25],[12,-25],[12,25],[-12,25]],
+    mass:7,
+    guns: [{pos:[0,-10], angle:0},
+           {pos:[0,10], angle:0}]
+  },
+  {
+    name:"Flubby",
+    hp:169,
+    dmg:1,
+    spread:Math.PI*2,
+    acc:1,
+    maxVel:1,
+    cooldown:2,
+    vertices:[[-18,-25],[12,-20],[18,0],[12,30],[-25,25],[-20,10]],
+    mass:15,
+    guns:[{pos:[0,0], angle:0}]
+  },
+  {
+    name:"The Hammer",
+    hp:120,
+    dmg:4,
+    spread:0.3,
+    acc:1,
+    maxVel:3,
+    cooldown:2,
+    vertices:[[-20,-25],[17,-22],[25,0],[17,22],[-20,25]],
+    mass:5,
+    guns:[{pos:[0,0], angle:0}]
   },
 ];
 
@@ -90,6 +164,10 @@ var Player = function(id, user, type){
   this.shooting = false;
   this.hp = tankTypes[this.type].hp;
   this.dmg = tankTypes[this.type].dmg;
+  this.spread = tankTypes[this.type].spread;
+
+  //gun position + angle info, ensure disconnect from tankTypes
+  this.guns = JSON.parse(JSON.stringify(tankTypes[this.type].guns));
   
   this.update = function(players, bullets){
     if (this.hp <= 0) this.keys = [];//stop getting inputs if dead
@@ -152,9 +230,6 @@ var Player = function(id, user, type){
     this.pos[0] += this.vel[0];
     this.pos[1] += this.vel[1];
     this.angle += this.vel[2];
-    //collision logic bullets
-    this.calcCorners();
-    this.collideBullets(bullets);
     
     //decellerate
     var acc = 0.9;
@@ -164,19 +239,36 @@ var Player = function(id, user, type){
     if (this.vel[1] < 0) this.vel[1] *= acc;
     if (this.vel[2] > 0) this.vel[2] *= acc/1.5;
     if (this.vel[2] < 0) this.vel[2] *= acc/1.5;
+
+    //collision logic bullets
+    this.calcCorners();
+    this.collideBullets(bullets);
   };
   this.shoot = function(bullets){
     if (this.cooldown<=0){
+      this.updateGuns();
       this.shooting = true;//deal with bullet spawn in server.js
       this.cooldown = tankTypes[this.type].cooldown;
     }
   }
+  //updates info for bullet spawn
+  this.updateGuns = function(){
+    for (var i = 0; i < this.guns.length; i++){
+      var g = tankTypes[this.type].guns[i];
+      //positional info
+      var len = Math.sqrt((g.pos[0])**2+(g.pos[1])**2);
+      var angle2 = Math.atan2(g.pos[1],g.pos[0]);
+      this.guns[i].pos = [this.pos[0]+(Math.cos(this.angle+angle2) * len), this.pos[1]+(Math.sin(this.angle+angle2) * len)];
+      this.guns[i].angle = this.angle + g.angle;
+    }
+  }
+  
   this.calcCorners = function(){
     var verts = tankTypes[this.type].vertices;
     for (var i = 0; i < verts.length; i++){
       var len = Math.sqrt((verts[i][0])**2+(verts[i][1])**2);
       var angle2 = Math.atan2(verts[i][1],verts[i][0]);
-      this.corners[i] = [this.pos[0]+(Math.cos(this.angle+angle2) * len), this.pos[1]+(Math.sin(this.angle+angle2) * len)]
+      this.corners[i] = [this.pos[0]+(Math.cos(this.angle+angle2) * len), this.pos[1]+(Math.sin(this.angle+angle2) * len)];
     }
     //OLD corner positions
     /*var len = Math.sqrt((playerDimensions[0]/2)**2+(playerDimensions[1]/2)**2);
@@ -203,6 +295,7 @@ var Player = function(id, user, type){
           //push enemies back
           this.vel[0] += b.vel[0]/this.mass;
           this.vel[1] += b.vel[1]/this.mass;
+          b.hit = true;
           this.hp -= b.dmg;//lose hp
           bullets[i].dur = 0;//destroy bullet
         }
@@ -243,14 +336,50 @@ var Player = function(id, user, type){
     }
     return colliding;//return a list of every colliding tank
   }
+
+  //calculate sightLines
+  this.calcSightLines = function(players) {
+    //bot range
+    var botRange = 400;
+    var numLines = 15;
+    var sightLines = [];//sightline value will scale from 0 to 1 based on how close the target is
+    for (var i = 0; i < numLines; i++){
+      var angle = this.angle+i*4/3*Math.PI/(numLines-1)-2*Math.PI/3;
+      var endPoint = [botRange*Math.cos(angle) + this.pos[0],
+                     botRange*Math.sin(angle) + this.pos[1]];
+      var detected = false;
+      tank:for (var t = 0; t < players.length; t++){
+        //check every line in tank
+        var p = players[t];
+        if (p.id==this.id) continue;//skip itself
+        
+        for (var d = 0; d < p.corners.length; d++){
+          var intersect = lineLineCross(p.corners[d], p.corners[(d+1)%p.corners.length], this.pos, endPoint);
+          if (intersect){
+            //return inverse distance
+            detected = true;
+            var dist = Math.sqrt((intersect[0]-this.pos[0])**2 + (intersect[1]-this.pos[1])**2);
+            sightLines.push(1-(dist/botRange));
+            break tank;
+          }
+        }
+      }
+      if (!detected) {
+        sightLines.push(0);
+      }
+    }
+    return sightLines;
+  }
 }
 
-var Bullet = function(x, y, dx, dy, color, duration, damage){
+var Bullet = function(id, x, y, dx, dy, color, duration, damage){
+  this.id = id;//id of shooter
   this.pos = [x, y];//x,y
   this.vel = [dx, dy];
   this.color = color;
   this.dur = duration;
   this.dmg = damage;
+  this.hit = false;//if bullet got a hit
   this.update = function(){
     this.pos[0]+=this.vel[0];
     this.pos[1]+=this.vel[1];
@@ -258,4 +387,4 @@ var Bullet = function(x, y, dx, dy, color, duration, damage){
   };
 }
 
-module.exports = {Player, Bullet};
+module.exports = {Player, Bullet, tankTypes};
