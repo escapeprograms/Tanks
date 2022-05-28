@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "express": "^4.17.3",
+    "lodash": "^4.17.21",
+    "lodash.clonedeep": "^4.5.0",
     "mathjs": "^10.4.3",
     "socket.io": "^4.4.1"
   },

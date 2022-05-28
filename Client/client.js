@@ -4,10 +4,15 @@ const socket = io();//from server.js
 /*area displayed
 0: home screen
 1: gameplay
-
+2: spectating
 */
 var area = 0;
 var log = [];//save all data gathered
+//UI vars
+var hpLen = 0;
+var sightLinesOn = false;
+var killBanners = [];
+
 //switch to page n
 function page(n) {
   area = n;
@@ -301,6 +306,13 @@ function removeKey(e) {
   socket.emit("input",{id:socket.id,keys:keys});//send id and keys down
 }
 
+//kill banner data
+socket.on("kill", (obj)=>{
+  obj.killerUsername = getPlayer(obj.killer).username;
+  obj.killedUsername = getPlayer(obj.killed).username;
+  killBanners.push(obj);
+});
+
 //receive player data
 var players = [];
 var bullets = [];
@@ -342,8 +354,8 @@ var Particle = function(x, y, dx, dy, color, duration, size) {
 
 //lines of sight
 var getSightLines = function(pos,a){
-  var botRange = 400;
-  var numLines = 15;
+  /*var botRange = 200;
+  var numLines = 19;
   var sightLines = [];//sightline value will scale from 0 to 1 based on how close the target is
   for (var i = 0; i < numLines; i++){
     var angle = a+i*4/3*Math.PI/(numLines-1)-2*Math.PI/3;
@@ -351,12 +363,24 @@ var getSightLines = function(pos,a){
                    botRange*Math.sin(angle) + pos[1]];
     sightLines.push([pos, endPoint]);
   }
+  return sightLines;*/
+  //bot range
+    var botRange = 600;
+    var numLines = 19;
+    var divisions = 3;//check secondary lines near the main lines
+    var sightLines = [];//sightline value will scale from 0 to 1 based on how close the target is
+    for (var i = 0; i < numLines; i++){
+      var angle = a+i*2*Math.PI/numLines;//full circle of range
+      var detected = false;
+      for (var j = 0; j < divisions; j++) {
+        var angle2 = angle - Math.PI/numLines + j*2*Math.PI/numLines/divisions;
+        var endPoint = [botRange*Math.cos(angle2) + pos[0],
+                     botRange*Math.sin(angle2) + pos[1]];
+        sightLines.push([pos, endPoint]);
+      }
+    }
   return sightLines;
 }
-
-//UI vars
-var hpLen = 0;
-var sightLinesOn = false;
 
 //Loop
 setInterval(()=>{
@@ -473,7 +497,7 @@ setInterval(()=>{
   //hp bar
   var hp = 0;
   var type = 0;
-  for (var i = 0; i < players.length; i++){
+  for (var i = 0; i < players.length; i++) {
     if (players[i].id==socket.id){
       hp = Math.max(0,players[i].hp);
       type = players[i].type;
@@ -483,9 +507,36 @@ setInterval(()=>{
   ctx.strokeRect(ctx.canvas.width/2-200,ctx.canvas.height-75,400,50);
   ctx.fillStyle = "rgb(85,248,20)";
   ctx.fillRect(ctx.canvas.width/2-200,ctx.canvas.height-75,hpLen/tankTypes[type].hp*400,50);
+
+  //kill banners
+  for (var i = 0; i < killBanners.length; i++) {
+    var kb = killBanners[i];
+    var bannerWidth = ctx.measureText(kb.killerUsername + " killed " + kb.killedUsername, ctx.canvas.width-bannerWidth).width + 40;
+    ctx.fillStyle = "rgb(255, 245, 140)";
+    ctx.fillRect(ctx.canvas.width-bannerWidth,100+i*70,bannerWidth,50);
+
+    ctx.font = "20px Courier New";
+    ctx.fillStyle = "black";
+    ctx.textAlign = "left";
+    ctx.fillText(kb.killerUsername + " killed " + kb.killedUsername, ctx.canvas.width-bannerWidth+20, 130+i*70);
+    kb.dur--;
+    if (kb.dur <= 0) {
+      killBanners = killBanners.slice(0,i).concat(killBanners.slice(i+1));
+      i--;
+    }
+  }
+  //special banner when you get the kill
   
 },1000/fps);
-  
+
+//get player
+function getPlayer(id) {
+  for (var i = 0; i < players.length; i++) {
+    if (id == players[i].id) return players[i];
+  }
+  return -1;
+}
+
 //pseudo updates for graphics (can't import actual update function)
 var updatePlayer = function(p){
   if (p.keys.KeyA) p.vel[2] = -0.1;
@@ -511,4 +562,9 @@ var updateBullet = function(b){
   b.pos[0]+=b.vel[0];
   b.pos[1]+=b.vel[1];
   b.dur--;
+}
+
+//spawn bot
+function spawnBot () {
+  socket.emit("bot",{username:"robot",type:0})
 }

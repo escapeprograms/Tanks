@@ -53,7 +53,7 @@ io.on("connection", (socket)=>{
   //spawn a bot
   socket.on("bot",(obj)=>{
     console.log("spawned bot")
-    players.push(new game.Player("bot", obj.username, obj.type));
+    players.push(new game.Player("bot"+Math.random(), obj.username, obj.type));
   });
 
   //check for dc
@@ -82,7 +82,8 @@ setInterval(()=>{
   //check all players
   players.forEach((p, index)=>{
     for (var i = 0; i < fps/tps; i++){//loop to match tick per sec with fps
-      if (p.id=="bot") {
+      //bot AI
+      if (p.id.search("bot") != -1) {
         var sightLines = p.calcSightLines(players);
         p.keys = testBot.respond(sightLines);
       }
@@ -98,6 +99,17 @@ setInterval(()=>{
       }
       //death
       if (p.hp <= 0){
+        //give kill credit
+        if (p.id != "") {
+          for (var i = 0; i < players.length; i++){
+            if (players[i].id == p.lastHit){
+              players[i].kills ++;
+              io.emit("kill",{killer:p.lastHit,killed:p.id,dur:100});
+              break;
+            }
+          }
+        }
+        
         p.id = "";//remove user control
         p.color = "rgb(84, 67, 71)";
         p.hp -= 0.3;//overheat until explosion
@@ -108,6 +120,7 @@ setInterval(()=>{
           }
           players = players.slice(0,index).concat(players.slice(index+1));//delete player
         }
+
       }
     }
   });

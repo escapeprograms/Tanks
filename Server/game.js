@@ -40,7 +40,7 @@ var tankTypes = [
     name:"Shotty",
     hp:110,
     dmg:18,
-    spread:0.2,
+    spread:0,
     acc:3,
     maxVel:5,
     cooldown:60,
@@ -143,6 +143,8 @@ var Player = function(id, user, type){
   this.id = id;
   this.type = type;
   if (!type) this.type = 0;
+  this.kills = 0;//kill tracker
+  this.lastHit = "";//who got the last hit on the player
   
   this.keys = {};//list of keys pressed (true=down, false=up)
   this.color = `rgb(
@@ -283,8 +285,8 @@ var Player = function(id, user, type){
   this.collideBullets = function(bullets){
     for (var i = 0; i < bullets.length; i++){
       var b = bullets[i];
-      //skip bullets of same color
-      if (b.color == this.color) continue;
+      //skip bullets of same id
+      if (b.id == this.id) continue;
       
       //draw an imaginary path of the bullet and check if it crosses any lines within the tank
       var b1 = b.pos;//current bullet position
@@ -298,6 +300,7 @@ var Player = function(id, user, type){
           b.hit = true;
           this.hp -= b.dmg;//lose hp
           bullets[i].dur = 0;//destroy bullet
+          this.lastHit = b.id;
         }
       }
       /*if (//check if the line crosses into the tank
@@ -340,30 +343,36 @@ var Player = function(id, user, type){
   //calculate sightLines
   this.calcSightLines = function(players) {
     //bot range
-    var botRange = 400;
-    var numLines = 15;
+    var botRange = 600;
+    var numLines = 19;
+    var divisions = 3;//check secondary lines near the main lines
     var sightLines = [];//sightline value will scale from 0 to 1 based on how close the target is
     for (var i = 0; i < numLines; i++){
-      var angle = this.angle+i*4/3*Math.PI/(numLines-1)-2*Math.PI/3;
-      var endPoint = [botRange*Math.cos(angle) + this.pos[0],
-                     botRange*Math.sin(angle) + this.pos[1]];
+      var angle = this.angle+i*2*Math.PI/numLines;//full circle of range
       var detected = false;
-      tank:for (var t = 0; t < players.length; t++){
-        //check every line in tank
-        var p = players[t];
-        if (p.id==this.id) continue;//skip itself
-        
-        for (var d = 0; d < p.corners.length; d++){
-          var intersect = lineLineCross(p.corners[d], p.corners[(d+1)%p.corners.length], this.pos, endPoint);
-          if (intersect){
-            //return inverse distance
-            detected = true;
-            var dist = Math.sqrt((intersect[0]-this.pos[0])**2 + (intersect[1]-this.pos[1])**2);
-            sightLines.push(1-(dist/botRange));
-            break tank;
+      section:for (var j = 0; j < divisions; j++) {
+        var angle2 = angle - Math.PI/numLines + j*2*Math.PI/numLines/divisions;
+        var endPoint = [botRange*Math.cos(angle2) + this.pos[0],
+                     botRange*Math.sin(angle2) + this.pos[1]];
+      
+        tank:for (var t = 0; t < players.length; t++){
+          //check every line in tank
+          var p = players[t];
+          if (p.id==this.id) continue;//skip itself
+          
+          for (var d = 0; d < p.corners.length; d++){
+            var intersect = lineLineCross(p.corners[d], p.corners[(d+1)%p.corners.length], this.pos, endPoint);
+            if (intersect){
+              //return inverse distance
+              detected = true;
+              var dist = Math.sqrt((intersect[0]-this.pos[0])**2 + (intersect[1]-this.pos[1])**2);
+              sightLines.push(1-(dist/botRange));
+              break section;
+            }
           }
         }
       }
+      
       if (!detected) {
         sightLines.push(0);
       }
@@ -381,8 +390,8 @@ var Bullet = function(id, x, y, dx, dy, color, duration, damage){
   this.dmg = damage;
   this.hit = false;//if bullet got a hit
   this.update = function(){
-    this.pos[0]+=this.vel[0];
-    this.pos[1]+=this.vel[1];
+    this.pos[0] += this.vel[0];
+    this.pos[1] += this.vel[1];
     this.dur--;
   };
 }

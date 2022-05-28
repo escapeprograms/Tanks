@@ -1,5 +1,7 @@
 const fs = require("fs");
 const math = require('mathjs');
+const _ = require("lodash");
+const bots = require("./bots.js");
 
 crossOver = function(w1, w2){
   //get shape of weights in a template
@@ -41,26 +43,210 @@ function isEqual(w1,w2){
   return true;
 }
 
-var w1 = [
+function sortResults(){
+    //Start from the second element.
+    for(let i = 1; i < results.length;i++){
+        //Go through the elements behind it.
+        for(let j = i - 1; j > -1; j--){
+            //value comparison using ascending order.
+            if(results[j + 1][1] > results[j][1]){//NOTE: ADD BACK [1] later
+                //swap
+                [results[j+1],results[j]] = [results[j],results[j + 1]];
+            }
+        }
+    }
+}
+
+var w = [
   [
-    [1,2],
-    [3,4],
-    [5,6]
+    [
+      0.192568385610431,
+      0.05389724145564245,
+      0.041428484330964466,
+      0.24917383336955612
+    ]
   ],
   [
-    [10,20],
-    [30,40],
+    [
+      -0.14597007631390035,
+      0.18636008848799146,
+      0.15296943567069465,
+      0.09611558508135165
+    ],
+    [
+      0.24514801397089314,
+      0.061386916770423405,
+      -0.09646418380118293,
+      -0.011954158527509584
+    ],
+    [
+      0.09167284259073993,
+      -0.15337952832296609,
+      0.2023424773301289,
+      0.08938585955512157
+    ],
+    [
+      0.06056796400498288,
+      -0.15229101639897025,
+      -0.2199654558184737,
+      0.17022962976025746
+    ]
   ]
 ];
 var w2 = [
   [
-    [0.1,0.2],
-    [0.3,0.4],
-    [0.5,0.6]
+    [
+      0.192568385610431,
+      0.05389724145564245,
+      0.041428484330964466,
+      0.24917383336955612
+    ]
   ],
   [
-    [11,22],
-    [33,44],
+    [
+      -0.14597007631390035,
+      0.18636008848799146,
+      0.15296943567069465,
+      0.09611558508135165
+    ],
+    [
+      0.24514801397089314,
+      0.061386916770423405,
+      -0.09646418380118293,
+      -0.011954158527509584
+    ],
+    [
+      0.09167284259073993,
+      -0.15337952832296609,
+      0.2023424773301289,
+      0.08938585955512157
+    ],
+    [
+      0.06056796400498288,
+      -0.15229101639897025,
+      -0.2199654558184737,
+      0.17022962976025746
+    ]
   ]
 ];
-console.log(isEqual(w1,w1));
+
+//fitness
+var calcFit = function(r){
+  return r[0]+r[1]-r[2]-r[3];//maximize first 2 values, minimize second 2 values
+}
+var results = [];
+//add sims
+var sims = [];
+for (var i = 0; i < 5; i++) {
+  sims.push(_.cloneDeep(new bots.Bot("DUMB"+i,w)))
+}
+//sims = _.cloneDeep(sims);
+var testBot = new bots.Bot("TESTO",w);
+
+
+/*for (var i = 0; i < sims.length; i++){
+  console.log(sims[i].weights[0][0]);//display
+}
+console.log("------")
+for (var i = 0; i < sims.length; i++){
+  sims[i].mutateWeights();
+  console.log(sims[i].weights[0][0]);//display
+  var fit = calcFit(sims[i].forward([1]));
+  results.push([sims[i].weights,fit,sims[i].id]);
+}
+console.log("------")
+for (var i = 0; i < sims.length; i++){
+  //sims[i].mutateWeights();
+  console.log(sims[i].weights[0][0]);//display
+}*/
+/*console.log("=======")
+var simss = [];
+for (var i = 0; i < 5; i++) {
+  simss.push(new bots.Bot("poop"+i,w));
+}
+simss = lodashClonedeep(simss)
+//sims[0].mutateWeights();
+
+for (var i = 0; i < simss.length; i++){
+  console.log(simss[i].weights[0][0]);//display
+}
+for (var i = 0; i < simss.length; i++) {
+  simss[i].mutateWeights();
+}
+console.log("------")
+for (var i = 0; i < simss.length; i++){
+  console.log(simss[i].weights[0][0]);//display
+  var fit = calcFit(simss[i].forward([1]));
+  results.push([simss[i].weights,fit,simss[i].id]);
+}
+console.log("------")
+for (var i = 0; i < simss.length; i++){
+  //sims[i].mutateWeights();
+  console.log(simss[i].weights[0][0]);//display
+}
+*/
+//BIG TEST
+
+/*
+for (var gen = 0; gen < 15; gen++) {
+  console.log("GENERATION "+gen)
+  for (var i = 0; i < sims.length; i++){
+    //sims[i].mutateWeights();
+    //console.log(sims[i].weights[0][0]);//display
+  }
+  console.log("------")
+  //sims[4].mutateWeights();
+  for (var j = 0; j < sims.length; j++){
+    console.log(sims[j].weights[0][0]);//display
+    var fit = calcFit(sims[j].forward([1]));
+    results.push([sims[j].weights,fit,sims[j].id]);
+  }
+  console.log("------")
+  for (var k = 0; k < sims.length; k++){
+    //sims[i].mutateWeights();
+    //console.log(sims[k].weights[0][0]);//display
+  }
+    
+  sortResults();
+  console.log(results)
+  var top = results[0][0];
+  //show best bot
+  var bestBot = _.cloneDeep(new bots.Bot("BEST",top));
+  console.log("Best Bot: "+bestBot.forward([1]));
+
+  //reset
+  results = [];
+  sims = [bestBot];
+  for (var i = 1; i < 5; i++) {
+    sims.push(_.cloneDeep(new bots.Bot("new"+i,top)));
+  }
+  for (var i = 1; i < 5; i++) {
+    sims[i].mutateWeights();
+  }
+  //sims[0].mutateWeights();
+  
+  console.log(isEqual(sims[0].weights,sims[1].weights))
+
+}
+*/
+
+//lodash test
+
+/*var list = [];
+var o = function(f){
+  this.x = {val:[f[0]]};
+  this.ad = function(){
+    this.x.val[0] = Math.random();
+  }
+};
+list.push(_.cloneDeep(new bots.Bot("DUMB",w)));
+list.push(_.cloneDeep(new bots.Bot("DUMBER",w)));
+
+list = _.cloneDeep(list);
+console.log(list[0].weights[0]);
+
+list[0].mutateWeights();
+
+console.log(list[1].weights[0]);
+console.log(list[0].weights[0]);*/
+

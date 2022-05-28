@@ -8,6 +8,8 @@ const express = require("express");
 const socketio = require("socket.io");
 const fs = require("fs");
 const math = require('mathjs')
+const _ = require("lodash")
+
 var game = require("./game.js");//get all game classes
 var bot = require("./bots.js");
 
@@ -22,13 +24,12 @@ const io = socketio(server);
 
 var spectators = [];
 var simulations = [];
-var numSims = 100;
-var selectedBots = 5;
+var numSims = 60;
+var selectedBots = 6;
 var results = [];//all weights of a generation + fitness
 var generationBests = [];//record best weights for all gen
 var displaySim;//simulation displayed
-var dummyPos = [[100,-150],[200,0],[100,150]];
-var stage = 0;
+var dummyPos = [100,0,0];//x,y,angle
 
 //on initial connection
 io.on("connection", (socket)=>{
@@ -64,18 +65,19 @@ io.on("connection", (socket)=>{
   });
 });
 //sort algo
-function sortResults(){
+function sortResults(arr){
     //Start from the second element.
-    for(let i = 1; i < results.length;i++){
+    for(let i = 1; i < arr.length;i++){
         //Go through the elements behind it.
         for(let j = i - 1; j > -1; j--){
             //value comparison using ascending order.
-            if(results[j + 1][1] > results[j][1]){
+            if(arr[j + 1][1] > arr[j][1]){
                 //swap
-                [results[j+1],results[j]] = [results[j],results[j + 1]];
+                [arr[j+1],arr[j]] = [arr[j],arr[j + 1]];
             }
         }
     }
+  return arr;
 }
 
 //geneitic crossover
@@ -129,17 +131,18 @@ function startSims(pos,results,cross) {//array of weights
       var r1 = results[Math.floor(Math.random()*results.length)];
       var r2 = results[Math.floor(Math.random()*results.length)];
       if (!cross) {//don't crossover
-        simulations.push(new bot.Simulation(pos,r1[0],r1[1]));
-        simulations.push(new bot.Simulation(pos,r2[0],r2[1]));
+        simulations.push(_.cloneDeep(new bot.Simulation(pos,r1[0])));
+        simulations.push(_.cloneDeep(new bot.Simulation(pos,r2[0])));
       } else {//crossover
-        var cr = crossOver(r1[0],r2[0]);
-        simulations.push(new bot.Simulation(pos,cr[0],r1[1]));
-        simulations.push(new bot.Simulation(pos,cr[1],r2[1]));
+        var cr = crossOver(r1[0].weights,r2[0].weights);
+        var crb = crossOver(r1[0].bias,r2[0].bias);
+        simulations.push(_.cloneDeep(new bot.Simulation(pos, {weights:cr[0], bias:crb[0]})));
+        simulations.push(_.cloneDeep(new bot.Simulation(pos,{weights:cr[1], bias:crb[1]})));
       }
       
     }
     else {
-      simulations.push(new bot.Simulation(pos));
+      simulations.push(_.cloneDeep(new bot.Simulation(pos)));
     }
   }
 }
@@ -147,66 +150,72 @@ function startSims(pos,results,cross) {//array of weights
 var w = [];
 var rawdata = fs.readFileSync(__dirname+'/log.txt');
 w = JSON.parse(rawdata);
-startSims(dummyPos[0],[[w],0]);//initial start
-//startSims(dummyPos[0]);
+startSims(dummyPos,[[w]]);//initial start
+//startSims(dummyPos);
 
 var oldBest = [];
+var allPlayers = [];
+var allBullets = [];
 
 var tps = 40;//tick per sec server side
 setInterval(()=>{
   //check all players
   if (simulations.length==0) {
+    //INTERESTING: MUTATIONS APPEAR TO STOP AS SOON AS A BOT SCORES POINTS
     //sort all results
-    sortResults();
-    //results = results.slice(0,selectedBots)
-    //show the previous best run
-    displaySim = new bot.Simulation(dummyPos[stage],results[0][0]);
-
-    stage++;//increase simulation stage
-    if (stage < dummyPos.length){
-      startSims(dummyPos[stage],results);
-    }
-    else {
-      //save info
-      stage = 0;
-      results = results.slice(0,selectedBots);
-      generationBests.push(results);
-      console.log(results);
-      io.emit("message",results);
-      io.emit("message","generation "+generationBests.length)
-      //start new gen
-      for (var i = 0; i < results.length; i++){
-        results[i][1] = 0;//reset fit score for next gen
-      }
-      //save top performer exactly as is
-      console.log(isEqual(results[0][0],oldBest));//compare old and new best
-      simulations.push(new bot.Simulation(dummyPos[stage],results[0][0],results[0][1]));
-      oldBest = results[0][0];//old best
-      //start other sims
-      startSims(dummyPos[stage],results,true);
-      for (var i = 1; i < simulations.length; i++) {
-        //mutate weights for all except first
-        simulations[i].mutate();
-      }
-    }
-    results = [];
+    results = sortResults(results);
+    //save info
+    results = results.slice(0,selectedBots);//get only the best
+    generationBests.push(results);
+    console.log(results);
+    io.emit("message",results);
+    io.emit("message","generation "+generationBests.length)
+    var bestBot = results[0][0];//weights and bias of best ranker
     
+    //start new gen
+    //pick a dummy start position, only if there was a successful bot
+    if (results[0][1] != 0) {
+      var dummyAngle = Math.random() * 2*Math.PI;
+      var dummyDist = Math.random()*400+100;
+      dummyPos = [Math.cos(dummyAngle)*dummyDist, Math.sin(dummyAngle)*dummyDist, Math.random()*Math.PI];
+    }
+    
+    for (var i = 0; i < results.length; i++){
+      results[i][1] = 0;//reset fit score for next gen
+    }
+    //start other sims
+    startSims(dummyPos,results,true);
+    for (var i = 0; i < simulations.length; i++) {
+      //mutate weights
+      simulations[i].mutate();
+    }
+    //put the best simulation in
+    simulations.push(_.cloneDeep(new bot.Simulation(dummyPos,bestBot)));
+    results = [];
   }
+  //reset display
+  allPlayers = [];
+  allBullets = [];
+  //update every sim
   for (var i = 0; i < simulations.length; i++){
     var s = simulations[i];
     s.update();
+    //add to display
+    allPlayers = allPlayers.concat(s.players);
+    allBullets = allBullets.concat(s.bullets);
     if (s.simTime == -1) {
-      for (var r = 0; r < s.results.length; r++){
+      /*for (var r = 0; r < s.results.length; r++){
         results.push(s.results[r]);//put each bot
-      }
+      }*/
+      results.push(s.results);
       simulations = simulations.slice(0,i).concat(simulations.slice(i+1));
       i--;
     }
   }
-  if (displaySim){
-    displaySim.update();
-    io.emit("ping",[displaySim.players,displaySim.bullets]);//send all spectator data and bullet data
-  }
+  //send all spectator data and bullet data
+  allPlayers = allPlayers.slice(0,30);
+  allBullets = allBullets.slice(0,30);
+  io.emit("ping",[allPlayers,allBullets]);
 },1000/tps);
 
 //server stuff
