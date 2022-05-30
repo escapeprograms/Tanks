@@ -2,10 +2,10 @@
 var math = require('mathjs');
 var game = require("./game.js");
 
-var layerSize = [15,20,4];//layers for neurons, input size of 11, and output size of 4
-var mutRate = 0.02;//mutation chance
-var mutAmount = 0.6;//mutation amount
-var simDur = 300;//in frames
+var layerSize = [19,20,4];//layers for neurons, input size of 15, and output size of 4, [19,20,4]
+var mutRate = 0.06;//mutation chance
+var mutAmount = 0.1;//mutation amount
+var simDur = 200;//in frames
 var botTankType = 0;
 
 //fitness calculation
@@ -21,24 +21,43 @@ function randM(x,y) {
   for (var i = 0; i < x; i++){
     var row = [];
     for (var j = 0; j < y; j++){
-      var digits = 4;
-      //row.push(Math.floor(Math.random()*10**digits)/10**digits);
+      //row.push(Math.random()/4);
       row.push(0)
     }
+    if (x == 1) return row;//return a single row if x = 1
     arr.push(row)
   }
   return arr;
 }
 
-var Bot = function(id, weights) {
+var Bot = function(id, network) {
   this.id = id;
   //default weight setup
   this.weights = [];
+  this.bias = [];
+  var w, b;
+  if (network) {
+    w = network.weights;
+    b = network.bias;
+  }
   for (var i = 0; i < layerSize.length-1; i++){
-    this.weights.push(randM(layerSize[i], layerSize[i+1]));
+    //weights
+    if (!w){
+      this.weights.push(randM(layerSize[i], layerSize[i+1]));
+    }
+    else {
+      this.weights.push(w[i]);//transfer weights
+    }
+    //biases (shifted 1 layer)
+    if (!b){
+      this.bias.push(randM(1, layerSize[i+1]));
+    }
+    else {
+      this.bias.push(b[i]);//transfer bias
+    }
   }
   //transfered weights
-  if (weights) this.weights = weights;
+  //if (weights) this.weights = [weights][0];
 
   //mutate weights
   this.mutateWeights = function() {
@@ -46,12 +65,26 @@ var Bot = function(id, weights) {
     for (var b = 0; b < this.weights[a].length; b++){//node
     for (var c = 0; c < this.weights[a][b].length; c++){//weight
       if (Math.random() < mutRate) {
-        var digits = 4;
-        var rnum = Math.floor(Math.random()*10**digits)/10**digits;
-        this.weights[a][b][c] += -(rnum*mutAmount) + mutAmount/2;
+        this.weights[a][b][c] += -(Math.random()*mutAmount) + mutAmount/2;
         //mutate weight
+        if (Math.random() < mutRate*2) {
+          this.weights[a][b][c] = 0;//clear weight chance
+        }
       }
     }
+    }
+    }
+  }
+  this.mutateBiases = function() {
+    for (var a = 0; a < this.bias.length; a++){//layer
+    for (var b = 0; b < this.bias[a].length; b++){//bias
+      if (Math.random() < mutRate) {
+        this.bias[a][b] += -(Math.random()*mutAmount) + mutAmount/2;
+        //mutate weight
+        if (Math.random() < mutRate*2) {
+          this.bias[a][b] = 0;//clear bias chance
+        }
+      }
     }
     }
   }
@@ -70,7 +103,7 @@ var Bot = function(id, weights) {
     if (n >= this.weights.length) return this.sigmoid(input);
     var X = math.matrix(input);
     var W = math.matrix(this.weights[n]);
-    var Z = math.multiply(X,W).valueOf();
+    var Z = math.add(math.multiply(X,W),this.bias[n]).valueOf();
     return this.forward(Z,n+1);
   }
   
@@ -110,7 +143,7 @@ var Simulation = function(pos,w1,fit){
   this.bullets = [];
   this.players.push(new game.Player("1", "Bot 1", botTankType));
   //this.players.push(new game.Player("2", "Bot 2", botTankType));
-  this.players.push(new game.Player("2", "dummy",2))
+  this.players.push(new game.Player("2", "dummy",0))
 
   //preposition
   //var p = Math.round(Math.random());
@@ -119,7 +152,7 @@ var Simulation = function(pos,w1,fit){
   //this.players[1-p].pos = [300,Math.random()*50];
   //this.players[1-p].angle = Math.PI;
   this.players[1].pos = [pos[0],pos[1]];
-  this.players[1].angle = 0;
+  this.players[1].angle = pos[2];
   
   this.stats = [{//dmg, hp, shots
     dmg:0,
@@ -131,6 +164,7 @@ var Simulation = function(pos,w1,fit){
 
   this.mutate = function() {
     this.bots[0].mutateWeights();
+    this.bots[0].mutateBiases();
   }
   
   this.update = function() {
@@ -196,7 +230,7 @@ var Simulation = function(pos,w1,fit){
     var f1 = calcFit(this.stats[0], this.simTime);
     this.fit +=f1;
     //var f2 = calcFit(this.stats[1], this.simTime);
-    this.results.push([this.bots[0].weights,this.fit]);
+    this.results = [{weights:this.bots[0].weights,bias:this.bots[0].bias}, this.fit];
     //this.results.push([this.bots[1].weights,f2]);
     this.simTime = -1;
   }

@@ -4,10 +4,15 @@ const socket = io();//from server.js
 /*area displayed
 0: home screen
 1: gameplay
-
+2: spectating
 */
 var area = 0;
 var log = [];//save all data gathered
+//UI vars
+var hpLen = 0;
+var sightLinesOn = false;
+var killBanners = [];
+
 //switch to page n
 function page(n) {
   area = n;
@@ -127,7 +132,7 @@ function drawTank(ctx, p, off){//takes in context, Player p, and offset [x,y]
       ctx.fillText(":)", 0, 0);
       ctx.resetTransform();
       break;
-    case 7://flubby
+    case 7://hammer
       ctx.translate(p.pos[0]+off[0],p.pos[1]+off[1]);
       ctx.rotate(p.angle);
       //draw barrel
@@ -141,6 +146,28 @@ function drawTank(ctx, p, off){//takes in context, Player p, and offset [x,y]
       ctx.fillRect(0,5,30,10);
       ctx.resetTransform();
       break;
+    case 8://godkiller
+      ctx.translate(p.pos[0]+off[0],p.pos[1]+off[1]);
+      ctx.rotate(p.angle);
+      //draw barrel
+      ctx.strokeRect(-15,-15,15,30);
+      ctx.fillRect(-15,-15,15,30);
+      ctx.strokeRect(0,-12,20,24);
+      ctx.fillRect(0,-12,20,24);
+      ctx.resetTransform();
+      break;
+    case 9://anti-chaser
+      ctx.translate(p.pos[0]+off[0],p.pos[1]+off[1]);
+      ctx.rotate(p.angle);
+      //draw barrel
+      ctx.rotate(-Math.PI/4);
+      ctx.strokeRect(-30,-5,20,10);
+      ctx.fillRect(-30,-5,20,10);
+      ctx.rotate(Math.PI/2);
+      ctx.strokeRect(-30,-5,20,10);
+      ctx.fillRect(-30,-5,20,10);
+      ctx.resetTransform();
+      break;
     default:
       break;
   }
@@ -151,11 +178,12 @@ var tankTypes = [
   {
     name:"Standard",
     hp:100,
-    dmg:40,
+    dmg:40,//64 dps
     spread:0.1,
     acc:1,
-    maxVel:5,
+    maxVel:4,
     cooldown:25,
+    dur:80,
     vertices:[[-12,-25],[12,-25],[12,25],[-12,25]],
     mass:5,
     guns: [{pos:[0,0], angle:0}]
@@ -163,23 +191,25 @@ var tankTypes = [
   {
     name:"Zoomer",
     hp:70,
-    dmg:20,
+    dmg:20,//53 dps
     spread:0.3,
-    acc:2,
-    maxVel:10,
+    acc:4,
+    maxVel:8,
     cooldown:15,
+    dur:40,
     vertices:[[-12,-20],[30,0],[-12,20]],
     mass:3,
     guns: [{pos:[0,0], angle:0}]
   },
   {
     name:"Artillery",
-    hp:150,
-    dmg:80,
-    spread:0.05,
+    hp:160,
+    dmg:120,//60 dps
+    spread:0,
     acc:1,
     maxVel:1,
-    cooldown:50,
+    cooldown:80,
+    dur:100,
     vertices:[[-25,-25],[12,-30],[18,0],[12,30],[-25,25]],
     mass:10,
     guns: [{pos:[0,0], angle:0}]
@@ -187,11 +217,12 @@ var tankTypes = [
   {
     name:"Shotty",
     hp:110,
-    dmg:18,
-    spread:0.2,
+    dmg:15,//60 dps
+    spread:0,
     acc:3,
     maxVel:5,
-    cooldown:60,
+    cooldown:50,
+    dur:20,
     vertices:[[-15,-20],[12,-25],[12,25],[-15,20]],
     mass:6,
     guns:[{pos:[0,0], angle:-0.25},
@@ -204,11 +235,12 @@ var tankTypes = [
   {
     name:"Fidget Spinner",
     hp:120,
-    dmg:10,
+    dmg:10,//40 dps
     spread:0.1,
     acc:1,
     maxVel:3,
     cooldown:10,
+    dur:60,
     vertices:[[-15,26],[30,0],[-15,-26]],
     mass:10,
     guns: [{pos:[0,0], angle:0},
@@ -218,24 +250,26 @@ var tankTypes = [
   {
     name:"Starlord",
     hp:90,
-    dmg:13,
+    dmg:20,//123 dps
     spread:0.2,
     acc:1.5,
     maxVel:6,
     cooldown:13,
+    dur:70,
     vertices:[[-12,-25],[12,-25],[12,25],[-12,25]],
-    mass:7,
+    mass:4,
     guns: [{pos:[0,-10], angle:0},
            {pos:[0,10], angle:0}]
   },
   {
     name:"Flubby",
-    hp:180,
-    dmg:5,
+    hp:169,
+    dmg:10,//200 dps
     spread:Math.PI*2,
     acc:1,
     maxVel:1,
     cooldown:2,
+    dur:40,
     vertices:[[-18,-25],[12,-20],[18,0],[12,30],[-25,25],[-20,10]],
     mass:15,
     guns:[{pos:[0,0], angle:0}]
@@ -243,15 +277,45 @@ var tankTypes = [
   {
     name:"The Hammer",
     hp:120,
-    dmg:3,
+    dmg:4,//80 dps
     spread:0.3,
     acc:1,
     maxVel:3,
     cooldown:2,
+    dur:40,
     vertices:[[-20,-25],[17,-22],[25,0],[17,22],[-20,25]],
     mass:5,
     guns:[{pos:[0,0], angle:0}]
   },
+  {
+    name:"Godkiller",
+    hp:100,
+    dmg:30,//60 dps
+    spread:0,
+    acc:1,
+    maxVel:1,
+    cooldown:60,
+    dur:40,
+    vertices:[[-20,-25],[17,-22],[25,0],[17,22],[-20,25]],
+    mass:5,
+    guns:[{pos:[0,-10], angle:0},
+          {pos:[0,10], angle:0},
+          {pos:[10,0], angle:0}]
+  },
+  {
+    name:"Antichaser",
+    hp:90,
+    dmg:20,//53 dps
+    spread:0.3,
+    acc:3,
+    maxVel:6,
+    cooldown:15,
+    dur:50,
+    vertices:[[-15,20],[30,0],[-15,-20]],
+    mass:3,
+    guns:[{pos:[0,0], angle:3/4*Math.PI},
+          {pos:[0,0], angle:5/4*Math.PI}]
+  }
 ];
 
 function switchTank(n) {
@@ -301,6 +365,15 @@ function removeKey(e) {
   socket.emit("input",{id:socket.id,keys:keys});//send id and keys down
 }
 
+//kill banner data
+socket.on("kill", (obj)=>{
+  obj.killerUsername = getPlayer(obj.killer).username;
+  obj.killedUsername = getPlayer(obj.killed).username;
+  obj.killCount = getPlayer(obj.killer).kills + 1;
+  killBanners.push(obj);
+  if (killBanners.length > 5) killBanners.shift();
+});
+
 //receive player data
 var players = [];
 var bullets = [];
@@ -315,9 +388,14 @@ socket.on("message", (text)=>{
   console.log(text);
   log.push(text);
 });
+//less important messages
+socket.on("message2", (text)=>{
+  document.getElementById("log").innerHTML=text;
+});
 
 //canvas and display
 var fps = 40;
+var frame = 0;//frame count
 var ctx = document.getElementById('canvas').getContext('2d')
 ctx.canvas.width = window.innerWidth;
 ctx.canvas.height = window.innerHeight;
@@ -342,8 +420,8 @@ var Particle = function(x, y, dx, dy, color, duration, size) {
 
 //lines of sight
 var getSightLines = function(pos,a){
-  var botRange = 400;
-  var numLines = 15;
+  /*var botRange = 200;
+  var numLines = 19;
   var sightLines = [];//sightline value will scale from 0 to 1 based on how close the target is
   for (var i = 0; i < numLines; i++){
     var angle = a+i*4/3*Math.PI/(numLines-1)-2*Math.PI/3;
@@ -351,14 +429,27 @@ var getSightLines = function(pos,a){
                    botRange*Math.sin(angle) + pos[1]];
     sightLines.push([pos, endPoint]);
   }
+  return sightLines;*/
+  //bot range
+    var botRange = 600;
+    var numLines = 19;
+    var divisions = 3;//check secondary lines near the main lines
+    var sightLines = [];//sightline value will scale from 0 to 1 based on how close the target is
+    for (var i = 0; i < numLines; i++){
+      var angle = a+i*2*Math.PI/numLines;//full circle of range
+      var detected = false;
+      for (var j = 0; j < divisions; j++) {
+        var angle2 = angle - Math.PI/numLines + j*2*Math.PI/numLines/divisions;
+        var endPoint = [botRange*Math.cos(angle2) + pos[0],
+                     botRange*Math.sin(angle2) + pos[1]];
+        sightLines.push([pos, endPoint]);
+      }
+    }
   return sightLines;
 }
 
-//UI vars
-var hpLen = 0;
-var sightLinesOn = false;
-
 //Loop
+var lastUpdate = 0;//keep track of fps
 setInterval(()=>{
   //spectator camera
   if (area == 2&&players.length>=1) {
@@ -470,22 +561,90 @@ setInterval(()=>{
   }
 
   //draw UI
+  var player = getPlayer(socket.id);
   //hp bar
   var hp = 0;
   var type = 0;
-  for (var i = 0; i < players.length; i++){
-    if (players[i].id==socket.id){
-      hp = Math.max(0,players[i].hp);
-      type = players[i].type;
-    }
+  if (player != -1) {
+    hp = Math.max(0,player.hp);
+    type = player.type;
   }
   hpLen -= (hpLen-hp)/3;
   ctx.strokeRect(ctx.canvas.width/2-200,ctx.canvas.height-75,400,50);
   ctx.fillStyle = "rgb(85,248,20)";
   ctx.fillRect(ctx.canvas.width/2-200,ctx.canvas.height-75,hpLen/tankTypes[type].hp*400,50);
+
+  //warning if too far out
+  if (player != -1) {
+    var distFromCenter = Math.sqrt(player.pos[0]*player.pos[0] + player.pos[1]*player.pos[1]);
+    if (distFromCenter > 1700) {
+      var displayWarn = frame % fps > fps/2;
+      
+        ctx.strokeStyle = "rgb(255,0,0)";
+        ctx.beginPath();
+        ctx.moveTo(ctx.canvas.width/2, 100);
+        ctx.lineTo(ctx.canvas.width/2 + 50, 186);
+        ctx.lineTo(ctx.canvas.width/2 - 50, 186);
+        ctx.lineTo(ctx.canvas.width/2, 100);
+        ctx.stroke();
+      if (displayWarn) {
+        ctx.fillStyle = "rgb(255,0,0)";
+        ctx.textAlign = "center";
+        ctx.font = "50px Courier New";
+        ctx.fillText("!",ctx.canvas.width/2, 170);
+        ctx.font = "20px Courier New";
+        ctx.fillText("Turn back!",ctx.canvas.width/2, 210);
+      }
+    }
+  }
   
+  //kill banners
+  for (var i = 0; i < killBanners.length; i++) {
+    var kb = killBanners[i];
+    var bannerWidth = ctx.measureText(kb.killerUsername + " killed " + kb.killedUsername, ctx.canvas.width-bannerWidth).width + 40;
+    ctx.fillStyle = "rgb(255, 245, 140)";
+    ctx.fillRect(ctx.canvas.width-bannerWidth,100+i*70,bannerWidth,50);
+
+    ctx.font = "20px Courier New";
+    ctx.fillStyle = "black";
+    ctx.textAlign = "left";
+    ctx.fillText(kb.killerUsername + " killed " + kb.killedUsername, ctx.canvas.width-bannerWidth+20, 130+i*70);
+    kb.dur--;
+    if (kb.dur <= 0) {
+      killBanners = killBanners.slice(0,i).concat(killBanners.slice(i+1));
+      i--;
+    }
+
+    //special banner when you get the kill
+    if (kb.killer == socket.id) {
+      var y = ctx.canvas.height-200 - 20*Math.tan(kb.dur/34-1.55);
+      ctx.strokeStyle = `rgb(0,0,0,${kb.dur/150})`;
+      ctx.strokeRect(ctx.canvas.width/2-50,y,100,100);
+      ctx.fillStyle = `rgb(255, 245, 140,${kb.dur/150})`;
+      ctx.fillRect(ctx.canvas.width/2-37,y + 13,75,75);
+      ctx.fillStyle = `rgb(0, 0, 0,${kb.dur/150})`;
+      ctx.font = "50px Courier New";
+      ctx.textAlign = "center";
+      ctx.fillText(kb.killCount,ctx.canvas.width/2,y+63);
+    }
+  }
+
+  frame++;//update frame count
+  
+  const d = new Date();
+  var realTps = 1000/(d.getTime()-lastUpdate);
+  //console.log(`Client running at ${realTps} tps`)
+  lastUpdate = d.getTime();
 },1000/fps);
-  
+
+//get player
+function getPlayer(id) {
+  for (var i = 0; i < players.length; i++) {
+    if (id == players[i].id) return players[i];
+  }
+  return -1;
+}
+
 //pseudo updates for graphics (can't import actual update function)
 var updatePlayer = function(p){
   if (p.keys.KeyA) p.vel[2] = -0.1;
@@ -511,4 +670,9 @@ var updateBullet = function(b){
   b.pos[0]+=b.vel[0];
   b.pos[1]+=b.vel[1];
   b.dur--;
+}
+
+//spawn bot
+function spawnBot () {
+  socket.emit("bot",{username:"robot",type:7})
 }
