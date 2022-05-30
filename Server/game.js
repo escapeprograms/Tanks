@@ -3,11 +3,12 @@ var tankTypes = [
   {
     name:"Standard",
     hp:100,
-    dmg:40,
+    dmg:40,//64 dps
     spread:0.1,
     acc:1,
-    maxVel:5,
+    maxVel:4,
     cooldown:25,
+    dur:80,
     vertices:[[-12,-25],[12,-25],[12,25],[-12,25]],
     mass:5,
     guns: [{pos:[0,0], angle:0}]
@@ -15,23 +16,25 @@ var tankTypes = [
   {
     name:"Zoomer",
     hp:70,
-    dmg:20,
+    dmg:20,//53 dps
     spread:0.3,
     acc:4,
-    maxVel:6,
+    maxVel:8,
     cooldown:15,
+    dur:40,
     vertices:[[-12,-20],[30,0],[-12,20]],
     mass:3,
     guns: [{pos:[0,0], angle:0}]
   },
   {
     name:"Artillery",
-    hp:150,
-    dmg:80,
-    spread:0.05,
+    hp:160,
+    dmg:120,//60 dps
+    spread:0,
     acc:1,
     maxVel:1,
-    cooldown:50,
+    cooldown:80,
+    dur:100,
     vertices:[[-25,-25],[12,-30],[18,0],[12,30],[-25,25]],
     mass:10,
     guns: [{pos:[0,0], angle:0}]
@@ -39,11 +42,12 @@ var tankTypes = [
   {
     name:"Shotty",
     hp:110,
-    dmg:18,
+    dmg:15,//90 dps
     spread:0,
     acc:3,
     maxVel:5,
-    cooldown:60,
+    cooldown:40,
+    dur:20,
     vertices:[[-15,-20],[12,-25],[12,25],[-15,20]],
     mass:6,
     guns:[{pos:[0,0], angle:-0.25},
@@ -56,11 +60,12 @@ var tankTypes = [
   {
     name:"Fidget Spinner",
     hp:120,
-    dmg:10,
+    dmg:10,//40 dps
     spread:0.1,
     acc:1,
     maxVel:3,
     cooldown:10,
+    dur:60,
     vertices:[[-15,26],[30,0],[-15,-26]],
     mass:10,
     guns: [{pos:[0,0], angle:0},
@@ -70,24 +75,26 @@ var tankTypes = [
   {
     name:"Starlord",
     hp:90,
-    dmg:13,
+    dmg:20,//123 dps
     spread:0.2,
     acc:1.5,
     maxVel:6,
     cooldown:13,
+    dur:70,
     vertices:[[-12,-25],[12,-25],[12,25],[-12,25]],
-    mass:7,
+    mass:4,
     guns: [{pos:[0,-10], angle:0},
            {pos:[0,10], angle:0}]
   },
   {
     name:"Flubby",
     hp:169,
-    dmg:1,
+    dmg:10,//200 dps
     spread:Math.PI*2,
     acc:1,
     maxVel:1,
     cooldown:2,
+    dur:40,
     vertices:[[-18,-25],[12,-20],[18,0],[12,30],[-25,25],[-20,10]],
     mass:15,
     guns:[{pos:[0,0], angle:0}]
@@ -95,15 +102,45 @@ var tankTypes = [
   {
     name:"The Hammer",
     hp:120,
-    dmg:4,
+    dmg:4,//80 dps
     spread:0.3,
     acc:1,
     maxVel:3,
     cooldown:2,
+    dur:40,
     vertices:[[-20,-25],[17,-22],[25,0],[17,22],[-20,25]],
     mass:5,
     guns:[{pos:[0,0], angle:0}]
   },
+  {
+    name:"Godkiller",
+    hp:100,
+    dmg:30,//60 dps
+    spread:0,
+    acc:1,
+    maxVel:1,
+    cooldown:60,
+    dur:40,
+    vertices:[[-20,-25],[17,-22],[25,0],[17,22],[-20,25]],
+    mass:5,
+    guns:[{pos:[0,-10], angle:0},
+          {pos:[0,10], angle:0},
+          {pos:[10,0], angle:0}]
+  },
+  {
+    name:"Antichaser",
+    hp:90,
+    dmg:20,//53 dps
+    spread:0.3,
+    acc:3,
+    maxVel:6,
+    cooldown:15,
+    dur:50,
+    vertices:[[-15,20],[30,0],[-15,-20]],
+    mass:3,
+    guns:[{pos:[0,0], angle:3/4*Math.PI},
+          {pos:[0,0], angle:5/4*Math.PI}]
+  }
 ];
 
 var bulletRadius = 10;
@@ -151,7 +188,11 @@ var Player = function(id, user, type){
         ${Math.random()*255},
         ${Math.random()*255},
         ${Math.random()*255})`;
-  this.pos = [Math.random()*300,Math.random()*300];//x, y
+  //make a spawn position
+  var spawnAngle = Math.random() * 2*Math.PI;
+  var spawnDist = Math.random()*500;
+  this.pos = [Math.cos(spawnAngle)*spawnDist, Math.sin(spawnAngle)*spawnDist, Math.random()*Math.PI];//x, y
+  
   this.vel = [0,0,0];//vx, vy, vangle
   this.acc = tankTypes[this.type].acc;
   this.maxVel = tankTypes[this.type].maxVel;
